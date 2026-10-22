@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#EEF2F4">
+  <title>ぶんしんプレゼンス</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="config-warning" class="config-warning" hidden>
+    config.js の GAS_URL がまだ設定されていません。GASをデプロイしたURLを設定してください。
+  </div>
+
+  <!-- ===================== ログイン ===================== -->
+  <section id="screen-login" class="screen auth-screen" hidden>
+    <div class="auth-card">
+      <div class="auth-mascot" aria-hidden="true">
+        <svg viewBox="0 0 120 120"><ellipse cx="60" cy="58" rx="40" ry="46" class="mini-head"/><ellipse cx="45" cy="60" rx="8" ry="12" class="mini-eye"/><ellipse cx="75" cy="60" rx="8" ry="12" class="mini-eye"/><rect x="52" y="84" width="16" height="4" rx="2" class="mini-mouth"/></svg>
+      </div>
+      <h1 class="auth-title" data-app-name>ぶんしんプレゼンス</h1>
+      <p class="auth-lead">はなれていても、そこにいる。</p>
+
+      <form id="form-login" novalidate>
+        <div class="field">
+          <label for="login-email">メールアドレス</label>
+          <input type="email" id="login-email" autocomplete="username" inputmode="email" required>
+        </div>
+        <div class="field">
+          <label for="login-password">パスワード</label>
+          <div class="pw-field">
+            <input type="password" id="login-password" autocomplete="current-password" required>
+          </div>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="login-remember" checked>
+          <span>ログイン状態を保持する</span>
+        </label>
+        <p class="form-msg" id="login-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block">ログイン</button>
+      </form>
+
+      <div class="auth-links">
+        <button type="button" class="link-btn" data-open="modal-register">はじめての方（会員登録）</button>
+        <button type="button" class="link-btn" data-open="modal-reset">パスワードを忘れた方</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 初回パスワード変更 ===================== -->
+  <section id="screen-change" class="screen auth-screen" hidden>
+    <div class="auth-card">
+      <h1 class="auth-title small">パスワードを変更してください</h1>
+      <p class="auth-lead">仮パスワードでログインしました。続けるには新しいパスワードを設定します。</p>
+
+      <form id="form-change" novalidate>
+        <div class="field">
+          <label for="cp-current">いまのパスワード（仮パスワード）</label>
+          <div class="pw-field">
+            <input type="password" id="cp-current" autocomplete="current-password" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="cp-new">新しいパスワード</label>
+          <div class="pw-field">
+            <input type="password" id="cp-new" autocomplete="new-password" required>
+          </div>
+        </div>
+        <div class="field">
+          <label for="cp-confirm">新しいパスワード（確認）</label>
+          <div class="pw-field">
+            <input type="password" id="cp-confirm" autocomplete="new-password" required>
+          </div>
+        </div>
+        <ul class="pw-rules" id="cp-rules">
+          <li data-rule="len">8文字以上</li>
+          <li data-rule="alpha">英字を含む</li>
+          <li data-rule="num">数字を含む</li>
+          <li data-rule="match">確認用と一致</li>
+        </ul>
+        <p class="form-msg" id="cp-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block">パスワードを変更して始める</button>
+      </form>
+      <div class="auth-links">
+        <button type="button" class="link-btn" id="btn-change-logout">ログアウト</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== メイン ===================== -->
+  <section id="screen-main" class="screen main-screen" hidden>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span data-app-name>ぶんしんプレゼンス</span>
+      </div>
+      <div class="topbar-right">
+        <span class="user-name" id="user-name"></span>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">ログアウト</button>
+      </div>
+    </header>
+
+    <div class="main-grid">
+      <!-- ステージ -->
+      <section class="stage" id="stage" aria-label="分身ステージ">
+        <div class="stage-sky" aria-hidden="true">
+          <span class="cloud c1"></span><span class="cloud c2"></span><span class="cloud c3"></span>
+        </div>
+        <video id="bg-video" class="stage-video" muted loop playsinline autoplay preload="auto"></video>
+        <div class="stage-shade" aria-hidden="true"></div>
+
+        <div class="stage-top">
+          <div class="stage-caption" id="stage-caption">そら</div>
+          <div class="stage-status" id="stage-status" data-state="idle">待機中</div>
+        </div>
+
+        <div class="bubble" id="bubble" aria-live="polite" hidden>
+          <p id="bubble-text"></p>
+        </div>
+
+        <div class="avatar" id="avatar" aria-hidden="true">
+          <svg viewBox="0 0 300 360" class="avatar-svg">
+            <defs>
+              <radialGradient id="g-head" cx="40%" cy="30%" r="75%">
+                <stop offset="0" stop-color="#FFFFFF"/>
+                <stop offset="0.7" stop-color="#F3F5F6"/>
+                <stop offset="1" stop-color="#DCE2E6"/>
+              </radialGradient>
+              <linearGradient id="g-body" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#FFFFFF"/>
+                <stop offset="1" stop-color="#E1E6EA"/>
+              </linearGradient>
+              <radialGradient id="g-eye" cx="45%" cy="35%" r="70%">
+                <stop offset="0" stop-color="#3A4752"/>
+                <stop offset="1" stop-color="#151C22"/>
+              </radialGradient>
+            </defs>
+
+            <ellipse class="av-shadow" cx="150" cy="346" rx="78" ry="9"/>
+
+            <g class="av-all">
+              <!-- 腕（左） -->
+              <g class="av-arm-l">
+                <rect x="80" y="230" width="24" height="90" rx="12" class="av-part"/>
+              </g>
+              <!-- 胴体 -->
+              <path class="av-part" d="M108 214 Q150 198 192 214 L206 326 Q150 348 94 326 Z" fill="url(#g-body)"/>
+              <path d="M128 250 Q150 258 172 250" class="av-line"/>
+              <!-- 腕（右） -->
+              <g class="av-arm-r">
+                <rect x="196" y="230" width="24" height="90" rx="12" class="av-part"/>
+              </g>
+              <!-- 首 -->
+              <rect x="138" y="200" width="24" height="18" rx="6" class="av-neck"/>
+
+              <!-- 頭 -->
+              <g class="av-head">
+                <ellipse cx="72" cy="122" rx="10" ry="18" class="av-ear"/>
+                <ellipse cx="228" cy="122" rx="10" ry="18" class="av-ear"/>
+                <ellipse cx="150" cy="118" rx="80" ry="92" fill="url(#g-head)" class="av-head-shell"/>
+                <path d="M96 70 Q150 40 204 70" class="av-line soft"/>
+                <g class="av-eyes">
+                  <ellipse cx="118" cy="124" rx="24" ry="30" class="av-eye-glow"/>
+                  <ellipse cx="182" cy="124" rx="24" ry="30" class="av-eye-glow"/>
+                  <ellipse cx="118" cy="124" rx="17" ry="24" fill="url(#g-eye)" class="av-eye"/>
+                  <ellipse cx="182" cy="124" rx="17" ry="24" fill="url(#g-eye)" class="av-eye"/>
+                  <circle cx="112" cy="114" r="4" class="av-eye-hl"/>
+                  <circle cx="176" cy="114" r="4" class="av-eye-hl"/>
+                </g>
+                <rect id="av-mouth" class="av-mouth" x="138" y="172" width="24" height="5" rx="2.5"/>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <div class="stage-tools">
+          <button type="button" class="tool-btn" id="btn-stop" title="発話を止める" aria-label="発話を止める">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <button type="button" class="tool-btn" id="btn-fullscreen" title="全画面" aria-label="全画面表示">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- 操作パネル -->
+      <section class="panel" aria-label="操作パネル">
+
+        <div class="panel-block">
+          <h2 class="block-title">リアクション</h2>
+          <div class="reactions" id="reactions"></div>
+        </div>
+
+        <div class="panel-block">
+          <h2 class="block-title">話す</h2>
+          <div class="mode-switch" id="mode-switch" role="radiogroup" aria-label="話し方">
+            <button type="button" data-mode="echo" role="radio">そのまま</button>
+            <button type="button" data-mode="polish" role="radio">AIが整える</button>
+            <button type="button" data-mode="reply" role="radio">AIが返事</button>
+          </div>
+          <p class="mode-hint" id="mode-hint"></p>
+          <div class="say-row">
+            <textarea id="say-input" rows="2" placeholder="分身に話させたいことを入力" maxlength="1000"></textarea>
+            <div class="say-actions">
+              <button type="button" class="round-btn mic" id="btn-mic" aria-label="音声入力" title="音声入力">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>
+              <button type="button" class="round-btn send" id="btn-send" aria-label="話す" title="話す">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-7z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-block">
+          <h2 class="block-title">ロケーション</h2>
+          <select id="location-select" aria-label="ロケーションを選ぶ"></select>
+          <p class="location-desc" id="location-desc"></p>
+        </div>
+
+        <div class="panel-block log-block">
+          <div class="block-head">
+            <h2 class="block-title">会話のきろく</h2>
+            <button type="button" class="link-btn small" id="btn-clear-log">消す</button>
+          </div>
+          <ol class="log-list" id="log-list"></ol>
+        </div>
+
+        <details class="panel-block settings">
+          <summary>音声と表示の設定</summary>
+          <div class="field">
+            <label for="set-engine">読み上げ</label>
+            <select id="set-engine">
+              <option value="gemini">Gemini TTS（自然な声）</option>
+              <option value="browser">ブラウザの音声（すぐ話す）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="set-voice">声</label>
+            <select id="set-voice"></select>
+          </div>
+          <label class="check"><input type="checkbox" id="set-speak-reaction"><span>リアクションボタンで声も出す</span></label>
+          <label class="check"><input type="checkbox" id="set-auto-send"><span>音声入力が終わったら自動で話す</span></label>
+          <label class="check"><input type="checkbox" id="set-show-video"><span>背景動画を表示する</span></label>
+        </details>
+      </section>
+    </div>
+  </section>
+
+  <!-- ===================== 会員登録モーダル ===================== -->
+  <div class="modal" id="modal-register" hidden role="dialog" aria-modal="true" aria-labelledby="reg-title">
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close aria-label="閉じる">×</button>
+      <h2 id="reg-title">会員登録</h2>
+      <p class="modal-lead">登録したメールアドレスに仮パスワードを送ります。</p>
+      <form id="form-register" novalidate>
+        <div class="field">
+          <label for="reg-email">メールアドレス</label>
+          <input type="email" id="reg-email" autocomplete="email" inputmode="email" required>
+        </div>
+        <div class="field">
+          <label for="reg-nickname">ニックネーム（分身の名前として表示）</label>
+          <input type="text" id="reg-nickname" maxlength="30" required>
+        </div>
+        <p class="form-msg" id="reg-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block">仮パスワードを受け取る</button>
+      </form>
+      <div class="result-box" id="reg-result" hidden>
+        <p>仮パスワード</p>
+        <div class="temp-pw">
+          <code id="reg-temp"></code>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-copy-temp">コピー</button>
+        </div>
+        <p class="note">この画面を閉じる前に控えてください。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== パスワード再発行モーダル ===================== -->
+  <div class="modal" id="modal-reset" hidden role="dialog" aria-modal="true" aria-labelledby="reset-title">
+    <div class="modal-card">
+      <button type="button" class="modal-close" data-close aria-label="閉じる">×</button>
+      <h2 id="reset-title">パスワードの再発行</h2>
+      <p class="modal-lead">登録済みのメールアドレスに、新しい仮パスワードを送ります。</p>
+      <form id="form-reset" novalidate>
+        <div class="field">
+          <label for="reset-email">メールアドレス</label>
+          <input type="email" id="reset-email" autocomplete="email" inputmode="email" required>
+        </div>
+        <p class="form-msg" id="reset-msg" role="alert"></p>
+        <button type="submit" class="btn btn-primary btn-block">仮パスワードを再発行</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 読み込み中 -->
+  <div class="loading" id="loading" hidden>
+    <div class="loading-card">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="loading-text">読み込み中…</span>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="version" id="app-version"></div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
