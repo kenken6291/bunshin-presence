@@ -12,6 +12,7 @@
   const PREFIX      = C.STORAGE_PREFIX || 'bunshin';
   const SESSION_KEY = PREFIX + '_session';
   const PREF_KEY    = PREFIX + '_prefs';
+  const GUIDE_KEY   = PREFIX + '_guide_seen';
 
   const GESTURE_MS = {
     nod: 1100, shake: 1100, look: 2200, wave: 1800, clap: 1600,
@@ -187,12 +188,18 @@
   function openModal(id) {
     const m = document.getElementById(id);
     if (!m) return;
+    if (id === 'modal-guide') {
+      $('#btn-guide-try').hidden = $('#screen-main').hidden;
+      const card = m.querySelector('.modal-card');
+      if (card) card.scrollTop = 0;
+    }
     m.hidden = false;
     const first = m.querySelector('input');
     if (first) setTimeout(() => first.focus(), 50);
   }
   function closeModal(m) {
     m.hidden = true;
+    if (m.id === 'modal-guide') { try { localStorage.setItem(GUIDE_KEY, '1'); } catch (e) {} }
     m.querySelectorAll('form').forEach(f => f.reset());
     m.querySelectorAll('.form-msg').forEach(el => setMsg(el, ''));
     m.querySelectorAll('.result-box').forEach(el => { el.hidden = true; });
@@ -363,6 +370,11 @@
     applyPrefsToUI();
     if (!state.locationsLoaded) loadLocations();
     setStatus('待機中', 'idle');
+    $('#btn-guide-try').hidden = false;
+    // はじめてメイン画面に来たときは使い方を表示
+    let seen = false;
+    try { seen = !!localStorage.getItem(GUIDE_KEY); } catch (e) {}
+    if (!seen) setTimeout(() => openModal('modal-guide'), 400);
   }
 
   function renderReactions() {
@@ -913,6 +925,16 @@
     });
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') $$('.modal').forEach(m => { if (!m.hidden) closeModal(m); });
+    });
+
+    // 使い方：分身にあいさつさせてみる（ログイン前は非表示）
+    $('#btn-guide-try').addEventListener('click', () => {
+      ensureAudio();
+      closeModal($('#modal-guide'));
+      const name = state.session && state.session.nickname ? state.session.nickname : '';
+      const text = 'こんにちは！' + (name ? name + 'さんの' : '') + '分身です。よろしくお願いします。';
+      addLog('avatar', text, 'お試し');
+      speak(text, 'wave');
     });
 
     $('#btn-copy-temp').addEventListener('click', async () => {

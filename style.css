@@ -511,6 +511,76 @@ button { cursor: pointer; }
   font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
 }
 
+/* ---------------- 使い方 ---------------- */
+.auth-guide-link { text-align: center; margin-top: 10px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.guide-btn { gap: 6px; }
+.guide-q {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  background: var(--signal); color: var(--signal-ink);
+  font-size: 13px; font-weight: 900; line-height: 1;
+}
+.modal-card.wide { max-width: 640px; }
+.guide h3 { margin: 0 0 8px; font-size: 17px; font-weight: 900; display: flex; align-items: center; gap: 8px; }
+.guide h3::before { content: ''; width: 6px; height: 18px; border-radius: 3px; background: var(--signal); }
+.guide-sec { margin: 0 0 22px; }
+.guide-sec p { margin: 0 0 8px; font-size: 15px; }
+.guide-note { font-size: 13px !important; color: var(--ink-soft); }
+
+.guide-scene {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  margin: 4px 0 12px; padding: 14px; border-radius: var(--r-ctrl); background: var(--mist);
+}
+.scene-box {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: #fff; border-radius: 14px; padding: 10px 6px;
+  text-align: center; font-weight: 700; font-size: 14px; line-height: 1.4;
+}
+.scene-box small { font-weight: 400; color: var(--ink-soft); font-size: 11px; }
+.scene-box.accent { box-shadow: 0 0 0 2px var(--signal); }
+.scene-emoji { font-size: 28px; line-height: 1.2; }
+.scene-arrow { font-size: 11px; color: var(--ink-soft); text-align: center; line-height: 1.4; }
+.scene-arrow span { display: block; font-size: 22px; color: var(--signal); font-weight: 900; }
+
+.guide-steps { list-style: none; padding: 0; margin: 0; counter-reset: step; display: flex; flex-direction: column; gap: 10px; }
+.guide-steps li {
+  counter-increment: step; position: relative;
+  padding: 10px 12px 10px 52px; border-radius: var(--r-ctrl); background: var(--mist);
+  display: flex; flex-direction: column; font-size: 14px;
+}
+.guide-steps li::before {
+  content: counter(step); position: absolute; left: 12px; top: 10px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--ink); color: #fff; font-weight: 900;
+  display: grid; place-items: center; font-size: 15px;
+}
+.guide-steps b { font-size: 15px; }
+.guide-steps strong { color: var(--signal-ink); background: #FFF1CC; padding: 0 3px; border-radius: 3px; }
+.kbd { display: inline-block; background: var(--signal); color: var(--signal-ink); border-radius: 6px; padding: 0 6px; font-size: 12px; }
+
+.guide-modes, .guide-faq { margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.guide-modes > div, .guide-faq > div { padding: 10px 12px; border: 1.5px solid var(--line); border-radius: var(--r-ctrl); }
+.guide-modes dt, .guide-faq dt { font-weight: 900; font-size: 15px; }
+.guide-modes dd, .guide-faq dd { margin: 2px 0 0; font-size: 14px; }
+.guide-modes small { color: var(--ink-soft); }
+
+.guide-chips { list-style: none; padding: 0; margin: 0 0 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+.guide-chips li { background: var(--mist); border-radius: 999px; padding: 3px 12px; font-size: 13px; }
+
+.guide-actions {
+  position: sticky; bottom: -22px; margin: 0 -24px -22px; padding: 12px 24px 16px;
+  background: linear-gradient(rgba(255,255,255,0), #fff 30%);
+  display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .guide-lbl { display: none; }
+  .guide-btn { padding: 6px 8px; }
+  .guide-scene { grid-template-columns: 1fr; }
+  .scene-arrow span { transform: rotate(90deg); }
+  .guide-actions .btn { flex: 1; }
+}
+
 /* ---------------- 読み込み・トースト・バージョン ---------------- */
 .loading { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(238,242,244,.65); }
 .loading-card {

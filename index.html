@@ -48,6 +48,9 @@
         <button type="button" class="link-btn" data-open="modal-register">はじめての方（会員登録）</button>
         <button type="button" class="link-btn" data-open="modal-reset">パスワードを忘れた方</button>
       </div>
+      <div class="auth-guide-link">
+        <button type="button" class="link-btn" data-open="modal-guide">ぶんしんプレゼンスって何？（使い方）</button>
+      </div>
     </div>
   </section>
 
@@ -100,6 +103,9 @@
       </div>
       <div class="topbar-right">
         <span class="user-name" id="user-name"></span>
+        <button type="button" class="btn btn-ghost btn-sm guide-btn" data-open="modal-guide" aria-label="使い方">
+          <span class="guide-q" aria-hidden="true">?</span><span class="guide-lbl">使い方</span>
+        </button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-logout">ログアウト</button>
       </div>
     </header>
@@ -294,6 +300,79 @@
         <p class="form-msg" id="reset-msg" role="alert"></p>
         <button type="submit" class="btn btn-primary btn-block">仮パスワードを再発行</button>
       </form>
+    </div>
+  </div>
+
+  <!-- ===================== 使い方モーダル ===================== -->
+  <div class="modal" id="modal-guide" hidden role="dialog" aria-modal="true" aria-labelledby="guide-title">
+    <div class="modal-card wide guide">
+      <button type="button" class="modal-close" data-close aria-label="閉じる">×</button>
+      <h2 id="guide-title">使い方</h2>
+      <p class="modal-lead">はなれていても、そこにいる。画面の中の「分身」が、あなたの代わりに話して、うなずいて、手を振ります。</p>
+
+      <section class="guide-sec">
+        <h3>ぶんしんプレゼンスとは</h3>
+        <div class="guide-scene" aria-hidden="true">
+          <div class="scene-box"><span class="scene-emoji">🏠</span><span>あなた<br><small>自宅・病院・旅先など</small></span></div>
+          <div class="scene-arrow">文字や声で<br>話したいことを送る<span>→</span></div>
+          <div class="scene-box accent"><span class="scene-emoji">🤖</span><span>分身<br><small>会場・教室・集まりの場</small></span></div>
+        </div>
+        <p>行けない場所の集まりに、あなたの「分身」を参加させるアプリです。あなたが入力した言葉を、分身があなたの代わりに声に出して話します。「はい」「拍手」などのボタンひとつで、うなずいたり拍手したりもできます。背景には、その場所の空撮映像を映せます。</p>
+      </section>
+
+      <section class="guide-sec">
+        <h3>はじめかた（3ステップ）</h3>
+        <ol class="guide-steps">
+          <li>
+            <b>場所を選ぶ</b>
+            <span>「ロケーション」から、分身がいる場所の背景を選びます。</span>
+          </li>
+          <li>
+            <b>分身を相手に届ける</b>
+            <span>Zoom・Google Meet・Teams などのオンライン会議でこの画面を共有します。共有するときは<strong>「音声も共有」にチェック</strong>を入れてください。会場ではプロジェクターやテレビに映すと、分身がその場にいるように見えます。右下の全画面ボタンを押すと分身だけを大きく表示できます。</span>
+          </li>
+          <li>
+            <b>話す</b>
+            <span>話したいことを入力して<span class="kbd">➤</span>を押すと、分身が声に出して話します。マイクボタンを押せば、しゃべった言葉を文字にできます。</span>
+          </li>
+        </ol>
+      </section>
+
+      <section class="guide-sec">
+        <h3>3つの話し方</h3>
+        <dl class="guide-modes">
+          <div><dt>そのまま</dt><dd>入力した言葉を、そのまま分身が話します。いちばん基本の使い方です。<br><small>例：「遅れてすみません。今日は家から参加しています」</small></dd></div>
+          <div><dt>AIが整える</dt><dd>短いメモ書きを、AIが話し言葉に整えてから話します。<br><small>例：「おめでとう 行けなくてごめん」→「おめでとうございます！行けなくてごめんなさい」</small></dd></div>
+          <div><dt>AIが返事</dt><dd>会場の人に言われたことを入力すると、AIが分身として返事を考えて話します。選んだ場所の説明をもとに、道案内のような受け答えもできます。</dd></div>
+        </dl>
+      </section>
+
+      <section class="guide-sec">
+        <h3>リアクションボタン</h3>
+        <p>話さなくても、ボタンひとつで気持ちを伝えられます。</p>
+        <ul class="guide-chips">
+          <li>🙆 はい（うなずく）</li><li>🙅 いいえ（首を振る）</li><li>👏 拍手</li>
+          <li>🤚 なんでやねん</li><li>👋 手を振る</li><li>👀 見回す</li>
+          <li>🙇 ありがとう（お辞儀）</li><li>🤔 うーん（考える）</li><li>🙌 やったー</li>
+        </ul>
+        <p class="guide-note">声を出さずに動きだけにしたいときは、「音声と表示の設定」で「リアクションボタンで声も出す」を外してください。</p>
+      </section>
+
+      <section class="guide-sec">
+        <h3>うまくいかないとき</h3>
+        <dl class="guide-faq">
+          <div><dt>声が出ない</dt><dd>画面のどこかを一度タップしてから、もう一度話してください。スマホはマナーモードや音量も確認してください。</dd></div>
+          <div><dt>話し始めるまで時間がかかる</dt><dd>「音声と表示の設定」で読み上げを「ブラウザの音声」にすると、すぐに話します（声は機械的になります）。</dd></div>
+          <div><dt>会議の相手に声が届かない</dt><dd>画面共有で「音声も共有」がオンになっているか確認してください。</dd></div>
+          <div><dt>話している途中で止めたい</dt><dd>ステージ右下の■ボタンで止められます。</dd></div>
+          <div><dt>背景が空のまま</dt><dd>その場所の動画がまだ用意されていないか、読み込めていません。別の場所を選ぶか、管理者に確認してください。</dd></div>
+        </dl>
+      </section>
+
+      <div class="guide-actions">
+        <button type="button" class="btn btn-ghost" data-close>閉じる</button>
+        <button type="button" class="btn btn-primary" id="btn-guide-try">分身にあいさつさせてみる</button>
+      </div>
     </div>
   </div>
 
