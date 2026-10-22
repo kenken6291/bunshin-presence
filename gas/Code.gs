@@ -8,7 +8,6 @@
  *       GEMINI_API_KEY      : (必須) Gemini API キー
  *       GEMINI_TEXT_MODEL   : (任意) 既定 gemini-2.5-flash
  *       GEMINI_TTS_MODEL    : (任意) 既定 gemini-2.5-flash-preview-tts
- *       TTS_STYLE           : (任意) 例「明るく親しみやすい声で、ゆっくり話して」
  *       AUDIO_FOLDER_ID     : (任意) 設定すると生成音声をWAVでDriveに保存（保存のみ。再生はブラウザへ直接返す）
  *       APP_URL             : (任意) メール本文に載せるアプリURL
  *       SHOW_TEMP_PASSWORD  : (任意) true で仮パスワードを画面にも表示（テスト用）
@@ -271,6 +270,7 @@ function chat_(b) {
       'あなたは遠隔操作アバター（分身ロボット）の発話アシスタントです。',
       '操作者が入力した文章を、分身がその場で声に出して話す自然な日本語の話し言葉に整えてください。',
       '意味や意図は変えず、丁寧で親しみやすく、1〜2文・80文字程度に収めます。絵文字や記号の読み上げにくい表現は使いません。',
+      'reply には実際に声に出すセリフだけを書き、「〜の声で」「（笑顔で）」などの話し方の指示やト書きは入れません。',
       gestureGuide,
       '出力は JSON {"reply": 整えた発話, "gesture": 動き} のみ。'
     ].join('\n');
@@ -279,6 +279,7 @@ function chat_(b) {
       'あなたは「' + nickname + '」さんの分身アバターです。' + nickname + 'さんは遠く離れた場所から、この分身を通して現地の人と交流しています。',
       '入力は、現地の人の発言や会話の話題です。分身として、温かく親しみやすい話し言葉で返事をしてください。',
       '返事は声で読み上げるため、1〜3文・100文字程度。箇条書き・絵文字・URLは使いません。',
+      'reply には実際に声に出すセリフだけを書き、「〜の声で」「（笑顔で）」などの話し方の指示やト書きは入れません。',
       '知らないことは推測で断定せず、「' + nickname + 'さんに確認しますね」のように伝えます。',
       loc ? ('いま案内している場所：' + loc.name + (loc.description ? '（' + String(loc.description).slice(0, 300) + '）' : '') + '。場所の案内を求められたら、この情報をもとに話してください。') : '',
       gestureGuide,
@@ -319,7 +320,7 @@ function chat_(b) {
   } catch (e) {
     parsed = { reply: raw.replace(/```json|```/g, '').trim(), gesture: 'talk' };
   }
-  const reply = String(parsed.reply || '').trim();
+  const reply = cleanSpeech_(parsed.reply);
   if (!reply) throw new Error('AIの返事を作れませんでした。もう一度お試しください');
   const gesture = GESTURES.indexOf(parsed.gesture) >= 0 ? parsed.gesture : 'talk';
 
@@ -332,21 +333,21 @@ function chat_(b) {
    ========================================================= */
 function tts_(b) {
   const u = requireSession_(b.token);
-  const text = String(b.text || '').trim().slice(0, CFG.TTS_MAX_CHARS);
+  const text = cleanSpeech_(b.text).slice(0, CFG.TTS_MAX_CHARS);
   if (!text) throw new Error('読み上げる文章がありません');
   const voice = /^[A-Za-z]{2,20}$/.test(String(b.voice || '')) ? String(b.voice) : 'Kore';
-  const style = prop_('TTS_STYLE');
 
   // 短い定型句（「はい！」等）はキャッシュから返す
   const cache = CacheService.getScriptCache();
-  const ck = 'tts_' + sha_(voice + '|' + style + '|' + text).slice(0, 40);
+  const ck = 'tts_' + sha_(voice + '|' + text).slice(0, 40);
   const hit = cache.get(ck);
   if (hit) {
     try { const c = JSON.parse(hit); return { ok: true, audio: c.a, sampleRate: c.r, mimeType: c.m, cached: true }; } catch (e) {}
   }
 
   const data = gemini_(prop_('GEMINI_TTS_MODEL') || CFG.DEFAULT_TTS_MODEL, {
-    contents: [{ parts: [{ text: style ? (style + ': ' + text) : text }] }],
+    // 指示文を混ぜると「〜の声で」まで読み上げられるため、話す文章だけを渡す
+    contents: [{ parts: [{ text: text }] }],
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
@@ -554,6 +555,24 @@ function log_(email, type, text, gesture) {
 /* =========================================================
    汎用ヘルパー
    ========================================================= */
+
+// 読み上げ用に整える：先頭の「〜の声で：」「（明るく）」などの話し方指示やカギ括弧を取り除く
+function cleanSpeech_(s) {
+  let t = String(s || '').trim();
+  for (let i = 0; i < 3; i++) {
+    const before = t;
+    t = t
+      // （明るく）【元気に】などのト書き
+      .replace(/^[（(【\[][^）)】\]]{0,30}[）)】\]]\s*/, '')
+      // 「明るい声で、ゆっくり話して：」など、コロンまでの話し方指示
+      .replace(/^[^。！？!?\n「」:：]{0,60}(声|口調|トーン|調子|話し方|話して|読んで|読み上げ)[^。！？!?\n「」:：]{0,20}[：:]\s*/, '')
+      // Say cheerfully: など英語の指示
+      .replace(/^(Say|Speak|Read)[^:：]{0,60}[:：]\s*/i, '')
+      .trim();
+    if (t === before) break;
+  }
+  return t.replace(/^「([\s\S]*)」$/, '$1').trim();
+}
 function prop_(key) {
   return PropertiesService.getScriptProperties().getProperty(key) || '';
 }
