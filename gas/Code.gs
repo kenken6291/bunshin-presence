@@ -6,8 +6,8 @@
  *  2. エディタで setup() を実行（シートとヘッダーを自動作成）
  *  3. プロジェクトの設定 > スクリプト プロパティ に以下を登録
  *       GEMINI_API_KEY      : (必須) Gemini API キー
- *       GEMINI_TEXT_MODEL   : (任意) 既定 gemini-2.5-flash
- *       GEMINI_TTS_MODEL    : (任意) 既定 gemini-2.5-flash-preview-tts
+ *       GEMINI_TEXT_MODEL   : (任意) 会話に使う既定モデル。未設定なら汎用の最新モデル（FALLBACK_TEXT_MODELS）
+ *       GEMINI_TTS_MODEL    : (任意) 読み上げに使うモデル。未設定なら FALLBACK_TTS_MODELS を順に試す
  *       AUDIO_FOLDER_ID     : (任意) 設定すると生成音声をWAVでDriveに保存（保存のみ。再生はブラウザへ直接返す）
  *       APP_URL             : (任意) メール本文に載せるアプリURL
  *       SHOW_TEMP_PASSWORD  : (任意) true で仮パスワードを画面にも表示（テスト用）
@@ -31,6 +31,12 @@
  *                → フロント側で VIDEO_BASE_PATH（videos/）を付けて GitHub Pages から再生
  *              ・Google Drive の共有リンクは大きいファイルで警告画面が挟まり再生できないため非対応
  *  [Logs]      timestamp | email | type | text | gesture
+ *
+ * ■ Geminiモデルの決め方（会話）
+ *  1. 画面の「AIモデル」で選ばれたモデル（config.js の GEMINI_MODEL_OPTIONS）
+ *  2. スクリプトプロパティ GEMINI_TEXT_MODEL
+ *  3. 汎用の最新モデル FALLBACK_TEXT_MODELS を先頭から順に試す
+ *  選んだモデルが廃止・未公開・名前違いで使えない時は、自動で 3 に切り替わります。
  */
 
 const CFG = {
@@ -42,9 +48,20 @@ const CFG = {
   CHAT_MAX_CHARS: 1000,
   TTS_MAX_CHARS: 500,
   RESET_INTERVAL_SEC: 60,
-  DEFAULT_TEXT_MODEL: 'gemini-2.5-flash',
-  DEFAULT_TTS_MODEL: 'gemini-2.5-flash-preview-tts'
+  GEMINI_MAX_ATTEMPTS: 3
 };
+
+// 汎用の最新モデル（会話用）。上から順に、使えるものが見つかるまで試す
+//   gemini-flash-latest : Googleが常に最新の汎用モデルへ自動で差し替えるエイリアス
+//   gemini-4-hydrogen   : 2026年11月時点の汎用最新モデル（「日々の暮らしをサポート」）
+//   gemini-3.8-flash    : 最終的な保険
+const FALLBACK_TEXT_MODELS = ['gemini-flash-latest', 'gemini-4-hydrogen', 'gemini-3.8-flash'];
+
+// 読み上げ（TTS）用モデル。上から順に、使えるものが見つかるまで試す
+const FALLBACK_TTS_MODELS = ['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts', 'gemini-2.5-pro-preview-tts'];
+
+const GEMINI_MODEL_PATTERN = /^gemini-[a-z0-9][a-z0-9.\-]{0,60}$/;
+const GEMINI_RETRY_CODES = [429, 500, 503];
 
 const SHEETS = {
   Users:     ['email', 'nickname', 'passwordHash', 'salt', 'mustChange', 'failCount', 'lockedUntil', 'status', 'createdAt', 'lastLogin'],
@@ -295,12 +312,13 @@ function chat_(b) {
   }
   contents.push({ role: 'user', parts: [{ text: text }] });
 
-  const data = gemini_(prop_('GEMINI_TEXT_MODEL') || CFG.DEFAULT_TEXT_MODEL, {
+  const requestedModel = resolveTextModel_(b.model);
+  const g = geminiWithFallback_(textModelCandidates_(requestedModel), {
     systemInstruction: { parts: [{ text: sys }] },
     contents: contents,
     generationConfig: {
       temperature: mode === 'polish' ? 0.4 : 0.8,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 2048,
       responseMimeType: 'application/json',
       responseSchema: {
         type: 'OBJECT',
@@ -312,6 +330,7 @@ function chat_(b) {
       }
     }
   });
+  const data = g.data;
 
   const raw = extractText_(data);
   let parsed;
@@ -325,7 +344,7 @@ function chat_(b) {
   const gesture = GESTURES.indexOf(parsed.gesture) >= 0 ? parsed.gesture : 'talk';
 
   log_(u.get('email'), 'chat:' + mode, text + ' → ' + reply, gesture);
-  return { ok: true, reply: reply, gesture: gesture };
+  return { ok: true, reply: reply, gesture: gesture, model: g.model, requestedModel: requestedModel, fallback: g.model !== requestedModel };
 }
 
 /* =========================================================
@@ -345,14 +364,16 @@ function tts_(b) {
     try { const c = JSON.parse(hit); return { ok: true, audio: c.a, sampleRate: c.r, mimeType: c.m, cached: true }; } catch (e) {}
   }
 
-  const data = gemini_(prop_('GEMINI_TTS_MODEL') || CFG.DEFAULT_TTS_MODEL, {
+  const ttsProp = String(prop_('GEMINI_TTS_MODEL') || '').trim().toLowerCase();
+  const ttsCandidates = uniq_([GEMINI_MODEL_PATTERN.test(ttsProp) ? ttsProp : ''].concat(FALLBACK_TTS_MODELS));
+  const data = geminiWithFallback_(ttsCandidates, {
     // 指示文を混ぜると「〜の声で」まで読み上げられるため、話す文章だけを渡す
     contents: [{ parts: [{ text: text }] }],
     generationConfig: {
       responseModalities: ['AUDIO'],
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } }
     }
-  });
+  }).data;
 
   const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
   const audioPart = parts.find(p => p.inlineData && p.inlineData.data);
@@ -400,26 +421,80 @@ function wavHeader_(dataLen, rate) {
 /* =========================================================
    Gemini API 共通
    ========================================================= */
+// 1モデルを呼び出す。混雑(429/500/503)時は待ち時間を伸ばしながら再試行する
 function gemini_(model, payload) {
   const key = prop_('GEMINI_API_KEY');
   if (!key) throw new Error('サーバーに GEMINI_API_KEY が設定されていません');
   const url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
-  const res = UrlFetchApp.fetch(url, {
+  const opts = {
     method: 'post',
     contentType: 'application/json',
     headers: { 'x-goog-api-key': key },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
-  });
-  const code = res.getResponseCode();
+  };
+  let code = 0, text = '';
+  for (let attempt = 1; attempt <= CFG.GEMINI_MAX_ATTEMPTS; attempt++) {
+    const res = UrlFetchApp.fetch(url, opts);
+    code = res.getResponseCode();
+    text = res.getContentText();
+    if (code === 200) break;
+    if (GEMINI_RETRY_CODES.indexOf(code) === -1 || attempt === CFG.GEMINI_MAX_ATTEMPTS) break;
+    Utilities.sleep(1500 * attempt);
+  }
   let data = {};
-  try { data = JSON.parse(res.getContentText()); } catch (e) {}
+  try { data = JSON.parse(text); } catch (e) {}
   if (code !== 200) {
-    const msg = (data.error && data.error.message) || res.getContentText().slice(0, 200);
-    if (code === 429) throw new Error('AIの利用が混み合っています。少し待ってからお試しください');
-    throw new Error('Gemini API エラー（' + code + '）：' + msg);
+    const msg = (data.error && data.error.message) || String(text).slice(0, 200);
+    const err = new Error(code === 429
+      ? 'AIの利用が混み合っています。少し待ってからお試しください'
+      : 'Gemini API エラー（' + code + '）：' + msg);
+    err.geminiCode = code;
+    err.modelNotFound = isModelNotFound_(code, text);
+    throw err;
   }
   return data;
+}
+
+// 候補モデルを順に試し、モデルが存在しない（廃止・未公開・名前違い）時だけ次へ進む
+function geminiWithFallback_(models, payload) {
+  let lastErr = null;
+  for (let i = 0; i < models.length; i++) {
+    try {
+      return { data: gemini_(models[i], payload), model: models[i] };
+    } catch (e) {
+      lastErr = e;
+      if (!e.modelNotFound) throw e;
+      console.warn('モデル ' + models[i] + ' が使えないため次の候補へ：' + e.message);
+    }
+  }
+  throw lastErr || new Error('使えるGeminiモデルが見つかりませんでした');
+}
+
+// モデルが存在しないことを示す応答かどうか
+function isModelNotFound_(code, text) {
+  if (code === 404) return true;
+  if (code === 400) return /not found|is not supported|NOT_FOUND|unknown model|invalid model/i.test(String(text));
+  return false;
+}
+
+// 会話に使うモデル：画面の指定 → スクリプトプロパティ → 汎用の最新モデル
+function resolveTextModel_(requested) {
+  const req = String(requested || '').trim().toLowerCase();
+  if (req && GEMINI_MODEL_PATTERN.test(req)) return req;
+  const prop = String(prop_('GEMINI_TEXT_MODEL') || '').trim().toLowerCase();
+  if (prop && GEMINI_MODEL_PATTERN.test(prop)) return prop;
+  return FALLBACK_TEXT_MODELS[0];
+}
+
+function textModelCandidates_(first) {
+  return uniq_([first].concat(FALLBACK_TEXT_MODELS));
+}
+
+function uniq_(arr) {
+  const out = [];
+  arr.forEach(v => { if (v && out.indexOf(v) < 0) out.push(v); });
+  return out;
 }
 
 function extractText_(data) {
@@ -654,17 +729,32 @@ function setup() {
 }
 
 function testGemini() {
-  const d = gemini_(prop_('GEMINI_TEXT_MODEL') || CFG.DEFAULT_TEXT_MODEL, {
+  const g = geminiWithFallback_(textModelCandidates_(resolveTextModel_('')), {
     contents: [{ parts: [{ text: '分身ロボットとして、ひとことあいさつしてください。' }] }]
   });
-  Logger.log(extractText_(d));
+  Logger.log('model=' + g.model + ' / ' + extractText_(g.data));
+}
+
+// 画面の選択肢にある各モデルが使えるか一括チェック
+function testAllModels() {
+  ['gemini-flash-latest', 'gemini-4-hydrogen', 'gemini-4-neon', 'gemini-4-carbon', 'gemini-4-argon', 'gemini-3.8-flash', 'gemini-3.5-flash'].forEach(m => {
+    try {
+      gemini_(m, { contents: [{ parts: [{ text: 'OKとだけ返して' }] }] });
+      Logger.log('○ ' + m);
+    } catch (e) {
+      Logger.log('× ' + m + ' : ' + e.message);
+    }
+  });
 }
 
 function testTts() {
-  const d = gemini_(prop_('GEMINI_TTS_MODEL') || CFG.DEFAULT_TTS_MODEL, {
+  const ttsProp = String(prop_('GEMINI_TTS_MODEL') || '').trim().toLowerCase();
+  const g = geminiWithFallback_(uniq_([ttsProp].concat(FALLBACK_TTS_MODELS)), {
     contents: [{ parts: [{ text: 'こんにちは、分身です。' }] }],
     generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } } }
   });
+  Logger.log('model=' + g.model);
+  const d = g.data;
   const p = d.candidates[0].content.parts.find(x => x.inlineData);
   Logger.log('mime=' + p.inlineData.mimeType + ' / base64 length=' + p.inlineData.data.length);
 }

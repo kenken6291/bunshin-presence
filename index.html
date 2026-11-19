@@ -237,7 +237,12 @@
         </div>
 
         <details class="panel-block settings">
-          <summary>音声と表示の設定</summary>
+          <summary>AI・音声・表示の設定</summary>
+          <div class="field">
+            <label for="set-model">AIモデル（言い換え・AI返事）</label>
+            <select id="set-model"></select>
+            <p class="mode-hint" id="model-hint">選んだモデルが使えない時は、汎用の最新モデルに自動で切り替わります</p>
+          </div>
           <div class="field">
             <label for="set-engine">読み上げ</label>
             <select id="set-engine">

@@ -30,6 +30,7 @@
     prefs: {
       mode: 'echo',
       ttsEngine: C.TTS_ENGINE || 'gemini',
+      model: C.GEMINI_MODEL || '',
       voice: C.DEFAULT_VOICE || 'Kore',
       speakOnReaction: true,
       autoSendVoice: false,
@@ -412,6 +413,7 @@
       ? '相手の発言や話題を入力（例：駅までどう行けばいい？）'
       : '分身に話させたいことを入力';
 
+    $('#set-model').value = state.prefs.model;
     $('#set-engine').value = state.prefs.ttsEngine;
     $('#set-voice').value = state.prefs.voice;
     $('#set-voice').disabled = state.prefs.ttsEngine !== 'gemini';
@@ -818,10 +820,12 @@
       const r = await api('chat', {
         text,
         mode,
+        model: state.prefs.model,
         history: mode === 'reply' ? state.history.slice(-10) : [],
         location: loc ? { name: loc.name, description: loc.description || '' } : null
       }, { auth: true, timeout: C.AI_TIMEOUT_MS || 60000 });
 
+      showUsedModel(r);
       if (mode === 'reply') {
         state.history.push({ role: 'user', text }, { role: 'model', text: r.reply });
         if (state.history.length > 20) state.history = state.history.slice(-20);
@@ -981,6 +985,12 @@
     });
 
     // 設定
+    $('#set-model').addEventListener('change', e => {
+      state.prefs.model = e.target.value;
+      savePrefs();
+      $('#model-hint').textContent = '選んだモデルが使えない時は、汎用の最新モデルに自動で切り替わります';
+      toast('AIモデル：' + modelLabel(state.prefs.model));
+    });
     $('#set-engine').addEventListener('change', e => { state.prefs.ttsEngine = e.target.value; savePrefs(); applyPrefsToUI(); });
     $('#set-voice').addEventListener('change', e => { state.prefs.voice = e.target.value; savePrefs(); });
     $('#set-speak-reaction').addEventListener('change', e => { state.prefs.speakOnReaction = e.target.checked; savePrefs(); });
@@ -995,6 +1005,46 @@
 
     // 声リストの読み込みが遅いブラウザ対策
     if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = () => {};
+  }
+
+  /* ---------- Geminiモデル選択 ---------- */
+  function modelOptions() {
+    const list = Array.isArray(C.GEMINI_MODEL_OPTIONS) && C.GEMINI_MODEL_OPTIONS.length
+      ? C.GEMINI_MODEL_OPTIONS
+      : [{ value: '', label: '自動モード（汎用の最新）' }];
+    return list;
+  }
+  function modelLabel(value) {
+    const o = modelOptions().find(x => x.value === value);
+    return o ? o.label : (value || '自動モード');
+  }
+  function fillModelSelect() {
+    const sel = $('#set-model');
+    sel.innerHTML = '';
+    modelOptions().forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.value;
+      o.textContent = m.label;
+      sel.appendChild(o);
+    });
+    // 保存済みの値が選択肢から消えていたら既定に戻す
+    if (!modelOptions().some(m => m.value === state.prefs.model)) {
+      state.prefs.model = C.GEMINI_MODEL || '';
+      savePrefs();
+    }
+  }
+  function showUsedModel(r) {
+    if (!r || !r.model) return;
+    const hint = $('#model-hint');
+    if (r.fallback) {
+      hint.textContent = '使用中：' + r.model + '（' + r.requestedModel + ' が使えなかったため自動で切替）';
+      if (state.prefs.model && !state.modelWarned) {
+        state.modelWarned = true;
+        toast('選んだAIモデルが使えないため、' + r.model + ' に自動で切り替えました', 'warn');
+      }
+    } else {
+      hint.textContent = '使用中：' + r.model;
+    }
   }
 
   function fillVoiceSelect() {
@@ -1020,6 +1070,7 @@
     loadPrefs();
     setupPwToggles();
     fillVoiceSelect();
+    fillModelSelect();
     renderReactions();
     bindEvents();
     setupMic();
